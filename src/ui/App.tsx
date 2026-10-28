@@ -1,146 +1,217 @@
-import { signal } from "@preact/signals";
-import { postStatus, weekStats } from "../core/digest";
-import { importTexts, marks, ready, setStatus, showToast, syncDrive, syncing, toast, weeks } from "../core/store";
+import { computed, signal } from "@preact/signals";
+import { markKey } from "../core/digest";
+import { marks, ready, setStatus, syncDrive, syncing, toast, weeks } from "../core/store";
 import { STATUS_LABEL, type Channel, type Post, type Status, type Week } from "../core/types";
 
-type Route = { name: "weeks" } | { name: "week"; key: string } | { name: "post"; key: string; channel: string; id: number };
-
-const route = signal<Route>({ name: "weeks" });
-const filter = signal<Status | "new" | "all">("all");
+type Tab = "week" | "new" | "marked";
+type Open = { tab: Tab; w: Week; ch: Channel; p: Post };
 
 const STATUSES: Status[] = ["idea", "later", "read", "rejected"];
 const ICON: Record<Status, string> = { idea: "💡", later: "🕓", read: "✓", rejected: "✕" };
+const TAB_LABEL: Record<Tab, string> = { week: "Неделя", new: "Новые", marked: "Отмеченные" };
 
-const go = (r: Route): void => {
-  route.value = r;
-  window.scrollTo(0, 0);
-};
+const tab = signal<Tab>("week");
+/** Выбранная неделя («год-номер»); пока не выбрана — берётся последняя. */
+const period = signal<string | null>(null);
+/** Выбранная тема; пусто — все темы. */
+const topic = signal<string>("");
+const weekFilter = signal<Status | "new" | "all">("all");
+const markedFilter = signal<Status>("idea");
+/** Открытый пост: список под ним остаётся на месте, поэтому «назад» возвращает туда же. */
+const open = signal<Open | null>(null);
 
-async function openFiles(e: Event): Promise<void> {
-  const input = e.target as HTMLInputElement;
-  const files = [...(input.files ?? [])];
-  input.value = "";
-  if (!files.length) return;
-  const ok = await importTexts(await Promise.all(files.map((f) => f.text())));
-  if (ok) showToast(`Загружено файлов: ${ok}`);
+const periodOf = (w: Week): string => `${w.year}-${w.week}`;
+
+interface Entry {
+  w: Week;
+  ch: Channel;
+  p: Post;
+  status: Status | null;
 }
 
-async function loadSample(): Promise<void> {
-  const r = await fetch(`${import.meta.env.BASE_URL}sample/2026-W43_BioMachines_full.json`);
-  await importTexts([await r.text()]);
+/** Все посты всех недель и тем, новые недели выше. */
+const entries = computed<Entry[]>(() => {
+  const out: Entry[] = [];
+  for (const w of weeks.value) {
+    for (const ch of w.channels) {
+      for (const p of ch.posts) {
+        out.push({ w, ch, p, status: marks.value.get(markKey(w, ch.username, p.id))?.status ?? null });
+      }
+    }
+  }
+  return out;
+});
+
+const periods = computed(() => {
+  const seen = new Map<string, { year: number; week: number }>();
+  for (const w of weeks.value) seen.set(periodOf(w), { year: w.year, week: w.week });
+  return [...seen.entries()].map(([key, v]) => ({ key, ...v }));
+});
+
+const currentPeriod = computed(() => {
+  const list = periods.value;
+  return list.find((x) => x.key === period.value)?.key ?? list[0]?.key ?? "";
+});
+
+const topics = computed(() => [...new Set(weeks.value.map((w) => w.topic))].sort());
+
+const visibleTopic = (e: Entry): boolean => !topic.value || e.w.topic === topic.value;
+
+function openPost(e: Entry): void {
+  open.value = { tab: tab.value, w: e.w, ch: e.ch, p: e.p };
 }
 
-function WeeksScreen() {
-  const list = weeks.value;
+function closePost(): void {
+  open.value = null;
+}
+
+/** Ставит отметку и сразу возвращает к списку; пост, помеченный повторным нажатием, остаётся открытым. */
+async function mark(o: Open, status: Status): Promise<void> {
+  const before = marks.value.get(markKey(o.w, o.ch.username, o.p.id))?.status ?? null;
+  await setStatus(o.w, o.ch.username, o.p.id, status);
+  if (before !== status) closePost();
+}
+
+function TopicChips() {
+  if (topics.value.length < 2) return null;
   return (
-    <div class="screen">
-      <header class="bar">
-        <h1>Дайджесты</h1>
-        <button class="btn" disabled={syncing.value} onClick={() => syncDrive(true)}>
-          {syncing.value ? "Обновляю…" : "Обновить"}
+    <div class="filters">
+      <button class={`chip ${topic.value === "" ? "on" : ""}`} onClick={() => (topic.value = "")}>
+        Все темы
+      </button>
+      {topics.value.map((t) => (
+        <button class={`chip ${topic.value === t ? "on" : ""}`} key={t} onClick={() => (topic.value = t)}>
+          {t}
         </button>
-        <label class="btn">
-          Файл
-          <input type="file" accept=".json,application/json" multiple hidden onChange={openFiles} />
-        </label>
-      </header>
-      {list.length === 0 && (
-        <div class="empty">
-          <p>Пока пусто. Нажмите «Обновить», чтобы загрузить недели с Google Drive.</p>
-          <button class="btn" onClick={loadSample}>
-            Загрузить пример
-          </button>
-        </div>
-      )}
-      {list.map((w) => {
-        const s = weekStats(w, marks.value);
-        return (
-          <button class="card" key={w.key} onClick={() => go({ name: "week", key: w.key })}>
-            <div class="row">
-              <b>{w.topic}</b>
-              <span class="muted">
-                {w.year}, неделя {w.week}
-              </span>
-            </div>
-            <div class="muted">
-              Постов: {s.total} · новых: {s.fresh}
-            </div>
-            <div class="chips">
-              {STATUSES.filter((st) => s.byStatus[st] > 0).map((st) => (
-                <span class="chip" key={st}>
-                  {ICON[st]} {s.byStatus[st]}
-                </span>
-              ))}
-            </div>
-          </button>
-        );
-      })}
+      ))}
     </div>
   );
 }
 
-function WeekScreen({ w }: { w: Week }) {
-  const f = filter.value;
-  const visible = (ch: Channel, p: Post): boolean => {
-    const s = postStatus(w, ch, p, marks.value);
-    return f === "all" || (f === "new" ? s === null : s === f);
-  };
+function PostRow({ e }: { e: Entry }) {
   return (
-    <div class="screen">
-      <header class="bar">
-        <button class="back" onClick={() => go({ name: "weeks" })}>
-          ‹
-        </button>
-        <h1>
-          {w.topic} · {w.week}
-        </h1>
-      </header>
+    <button class={`post ${e.status ?? ""}`} onClick={() => openPost(e)}>
+      <div class="row">
+        <b>{e.p.title}</b>
+        {e.status && <span>{ICON[e.status]}</span>}
+      </div>
+      <div class="muted">{e.p.summary}</div>
+    </button>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return <div class="empty">{text}</div>;
+}
+
+/** Список постов, сгруппированный: тема → канал. Для лент «Новые» и «Отмеченные» — с указанием недели. */
+function Grouped({ list, withWeek }: { list: Entry[]; withWeek?: boolean }) {
+  const groups = new Map<string, Entry[]>();
+  for (const e of list) {
+    const k = `${e.w.topic}|${e.ch.username}|${withWeek ? periodOf(e.w) : ""}`;
+    (groups.get(k) ?? groups.set(k, []).get(k)!).push(e);
+  }
+  return (
+    <>
+      {[...groups.entries()].map(([k, items]) => {
+        const first = items[0];
+        return (
+          <section key={k}>
+            <h2>
+              {first.ch.title || first.ch.username}
+              <span class="muted tag">
+                {first.w.topic}
+                {withWeek ? ` · нед. ${first.w.week}` : ""}
+              </span>
+            </h2>
+            {items.map((e) => (
+              <PostRow e={e} key={`${e.w.key}|${e.ch.username}|${e.p.id}`} />
+            ))}
+          </section>
+        );
+      })}
+    </>
+  );
+}
+
+function WeekTab() {
+  if (!periods.value.length) return <Empty text="Пока пусто. Нажмите «Обновить», чтобы загрузить недели с Google Drive." />;
+  const cur = currentPeriod.value;
+  const inWeek = entries.value.filter((e) => periodOf(e.w) === cur && visibleTopic(e));
+  const f = weekFilter.value;
+  const list = inWeek.filter((e) => f === "all" || (f === "new" ? e.status === null : e.status === f));
+  const done = inWeek.filter((e) => e.status !== null).length;
+  return (
+    <>
+      <div class="filters">
+        {periods.value.map((x) => (
+          <button class={`chip ${cur === x.key ? "on" : ""}`} key={x.key} onClick={() => (period.value = x.key)}>
+            Неделя {x.week}
+          </button>
+        ))}
+      </div>
+      <TopicChips />
+      <div class="muted stat">
+        Разобрано {done} из {inWeek.length}
+      </div>
       <div class="filters">
         {(["all", "new", ...STATUSES] as const).map((k) => (
-          <button class={`chip ${f === k ? "on" : ""}`} key={k} onClick={() => (filter.value = k)}>
+          <button class={`chip ${f === k ? "on" : ""}`} key={k} onClick={() => (weekFilter.value = k)}>
             {k === "all" ? "Все" : k === "new" ? "Новые" : `${ICON[k]} ${STATUS_LABEL[k]}`}
           </button>
         ))}
       </div>
-      {w.channels.map((ch) => {
-        const posts = ch.posts.filter((p) => visible(ch, p));
-        if (!posts.length) return null;
-        return (
-          <section key={ch.username}>
-            <h2>{ch.title || ch.username}</h2>
-            {ch.week_summary && <p class="muted summary">{ch.week_summary}</p>}
-            {posts.map((p) => {
-              const s = postStatus(w, ch, p, marks.value);
-              return (
-                <button class={`post ${s ?? ""}`} key={p.id} onClick={() => go({ name: "post", key: w.key, channel: ch.username, id: p.id })}>
-                  <div class="row">
-                    <b>{p.title}</b>
-                    {s && <span>{ICON[s]}</span>}
-                  </div>
-                  <div class="muted">{p.summary}</div>
-                </button>
-              );
-            })}
-          </section>
-        );
-      })}
-    </div>
+      {list.length ? <Grouped list={list} /> : <Empty text="Здесь ничего нет" />}
+    </>
   );
 }
 
-function PostScreen({ w, ch, p }: { w: Week; ch: Channel; p: Post }) {
-  const s = postStatus(w, ch, p, marks.value);
+function NewTab() {
+  const list = entries.value.filter((e) => e.status === null && visibleTopic(e));
   return (
-    <div class="screen">
+    <>
+      <TopicChips />
+      <div class="muted stat">Неразобранных постов: {list.length}</div>
+      {list.length ? <Grouped list={list} withWeek /> : <Empty text="Всё разобрано 🎉" />}
+    </>
+  );
+}
+
+function MarkedTab() {
+  const f = markedFilter.value;
+  const list = entries.value.filter((e) => e.status === f && visibleTopic(e));
+  return (
+    <>
+      <div class="filters">
+        {STATUSES.map((k) => (
+          <button class={`chip ${f === k ? "on" : ""}`} key={k} onClick={() => (markedFilter.value = k)}>
+            {ICON[k]} {STATUS_LABEL[k]} · {entries.value.filter((e) => e.status === k).length}
+          </button>
+        ))}
+      </div>
+      <TopicChips />
+      {list.length ? <Grouped list={list} withWeek /> : <Empty text="Пока нет отмеченных постов" />}
+    </>
+  );
+}
+
+function PostScreen({ o }: { o: Open }) {
+  const { ch, p } = o;
+  const s = marks.value.get(markKey(o.w, ch.username, p.id))?.status ?? null;
+  return (
+    <div class="screen post-screen">
       <header class="bar">
-        <button class="back" onClick={() => go({ name: "week", key: w.key })}>
+        <button class="back" onClick={closePost}>
           ‹
         </button>
         <h1>{ch.title || ch.username}</h1>
       </header>
       <article>
         <h2>{p.title}</h2>
-        {p.date && <div class="muted">{new Date(p.date).toLocaleString("ru-RU")}</div>}
+        <div class="muted">
+          {o.w.topic}
+          {p.date ? ` · ${new Date(p.date).toLocaleString("ru-RU")}` : ""}
+        </div>
         <p class="muted summary">{p.summary}</p>
         {p.full_text ? <div class="full">{p.full_text}</div> : <p class="muted">Полного текста нет — откройте пост в Telegram.</p>}
         {!!p.image_count && <p class="muted">Изображений в посте: {p.image_count}</p>}
@@ -150,7 +221,7 @@ function PostScreen({ w, ch, p }: { w: Week; ch: Channel; p: Post }) {
       </article>
       <footer class="actions">
         {STATUSES.map((st) => (
-          <button class={`act ${s === st ? "on" : ""}`} key={st} onClick={() => setStatus(w, ch.username, p.id, st)}>
+          <button class={`act ${s === st ? "on" : ""}`} key={st} onClick={() => mark(o, st)}>
             <span>{ICON[st]}</span>
             {STATUS_LABEL[st]}
           </button>
@@ -162,19 +233,32 @@ function PostScreen({ w, ch, p }: { w: Week; ch: Channel; p: Post }) {
 
 export function App() {
   if (!ready.value) return <div class="empty">Загрузка…</div>;
-  const r = route.value;
-  const w = r.name === "weeks" ? undefined : weeks.value.find((x) => x.key === r.key);
-  let body;
-  if (r.name === "weeks" || !w) body = <WeeksScreen />;
-  else if (r.name === "week") body = <WeekScreen w={w} />;
-  else {
-    const ch = w.channels.find((c) => c.username === r.channel);
-    const p = ch?.posts.find((x) => x.id === r.id);
-    body = ch && p ? <PostScreen w={w} ch={ch} p={p} /> : <WeekScreen w={w} />;
-  }
+  const o = open.value;
   return (
     <div class="app">
-      {body}
+      {/* Список не размонтируется под открытым постом, чтобы сохранилась прокрутка. */}
+      <div class="screen" hidden={!!o}>
+        <header class="bar">
+          <h1>{TAB_LABEL[tab.value]}</h1>
+          <button class="btn" disabled={syncing.value} onClick={() => syncDrive(true)}>
+            {syncing.value ? "Обновляю…" : "Обновить"}
+          </button>
+        </header>
+        {tab.value === "week" && <WeekTab />}
+        {tab.value === "new" && <NewTab />}
+        {tab.value === "marked" && <MarkedTab />}
+      </div>
+      {o && <PostScreen o={o} />}
+      {!o && (
+        <nav class="tabs">
+          {(Object.keys(TAB_LABEL) as Tab[]).map((t) => (
+            <button class={tab.value === t ? "on" : ""} key={t} onClick={() => (tab.value = t)}>
+              {TAB_LABEL[t]}
+              {t === "new" && <b class="count">{entries.value.filter((e) => e.status === null).length}</b>}
+            </button>
+          ))}
+        </nav>
+      )}
       {toast.value && <div class="toast">{toast.value}</div>}
     </div>
   );

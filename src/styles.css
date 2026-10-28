@@ -35,7 +35,7 @@ button {
 }
 
 .screen {
-  padding: calc(var(--top) + 8px) 16px calc(var(--bottom) + 96px);
+  padding: 0 16px calc(var(--bottom) + 96px);
   max-width: 720px;
   margin: 0 auto;
 }
@@ -47,7 +47,8 @@ button {
   position: sticky;
   top: 0;
   background: var(--bg);
-  padding: 8px 0;
+  /* Шапка не заезжает под «шторку» и часы iPhone. */
+  padding: calc(var(--top) + 10px) 0 8px;
   z-index: 2;
 }
 .bar h1 {
@@ -149,3 +150,30 @@ h2 { font-size: 18px; margin: 20px 0 6px; }
   padding: 10px 16px;
   border-radius: 12px;
 }
+
+.tag { font-size: 12px; font-weight: 400; margin-left: 8px; }
+.stat { margin: 8px 0 4px; }
+.tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding-bottom: var(--bottom);
+  z-index: 3;
+}
+.tabs button { padding: 14px 4px; text-align: center; color: var(--muted); }
+.tabs button.on { color: var(--accent); font-weight: 600; }
+.count {
+  margin-left: 6px;
+  background: var(--accent);
+  color: #08201d;
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 12px;
+}
+.post-screen { padding-bottom: calc(var(--bottom) + 100px); }
+[hidden] { display: none !important; }
