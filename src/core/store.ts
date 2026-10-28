@@ -1,5 +1,6 @@
 import { computed, signal } from "@preact/signals";
 import { allDigests, allMarks, appendMark, getMeta, saveDigest, setMeta } from "./db";
+import { fetchNewDigests, getKey } from "./drive";
 import { foldMarks, markKey, mergeWeeks, parseDigest } from "./digest";
 import type { DigestFile, Mark, Status, Week } from "./types";
 
@@ -49,6 +50,30 @@ export async function importTexts(texts: string[]): Promise<number> {
   }
   digests.value = fresh;
   return ok;
+}
+
+export const syncing = signal(false);
+
+/** Подтягивает новые дайджесты с Drive. Без ключа тихо ничего не делает. */
+export async function syncDrive(manual = false): Promise<void> {
+  const key = await getKey();
+  if (!key) {
+    if (manual) showToast("Нет ключа Drive: откройте ссылку с #key=…");
+    return;
+  }
+  if (syncing.value) return;
+  syncing.value = true;
+  try {
+    const { texts, total } = await fetchNewDigests(key);
+    const n = await importTexts(texts);
+    if (manual || n) showToast(n ? `Новых файлов: ${n}` : `Всё актуально (файлов на Drive: ${total})`);
+  } catch (e) {
+    // Нет сети — не страшно: приложение работает с тем, что уже скачано.
+    console.error("sync failed", e);
+    if (manual) showToast(e instanceof Error ? e.message : "Не удалось обновить");
+  } finally {
+    syncing.value = false;
+  }
 }
 
 /** Ставит отметку; повторное нажатие на ту же снимает её. */

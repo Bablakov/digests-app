@@ -14,10 +14,13 @@ export function parseDigest(text: string): DigestFile | string {
     return "Файл не похож на JSON";
   }
   const d = j as Partial<DigestFile>;
-  if (!d || typeof d.topic !== "string" || typeof d.year !== "number" || typeof d.week !== "number" || !Array.isArray(d.channels)) {
+  // Рутины иногда пишут week строкой ("43") — приводим к числу.
+  const year = Number(d?.year);
+  const week = Number(d?.week);
+  if (!d || typeof d.topic !== "string" || !Number.isInteger(year) || !Number.isInteger(week) || !Array.isArray(d.channels)) {
     return "Это не дайджест: нет topic / year / week / channels";
   }
-  return d as DigestFile;
+  return { ...d, year, week } as DigestFile;
 }
 
 /** Склеивает файлы одной недели (например, 4 группы GameDev) в одну неделю по теме. */

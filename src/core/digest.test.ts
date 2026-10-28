@@ -52,5 +52,9 @@ describe("weekStats", () => {
 
 describe("parseDigest", () => {
   it("отвергает чужой JSON", () => expect(typeof parseDigest("{}")).toBe("string"));
+  it("приводит week-строку к числу", () => {
+    const d = parseDigest(JSON.stringify({ ...file(1, "a", [1]), week: "43" }));
+    expect(typeof d === "object" && d.week).toBe(43);
+  });
   it("принимает дайджест", () => expect(typeof parseDigest(JSON.stringify(file(1, "a", [1])))).toBe("object"));
 });

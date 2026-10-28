@@ -1,6 +1,6 @@
 import { signal } from "@preact/signals";
 import { postStatus, weekStats } from "../core/digest";
-import { importTexts, marks, ready, setStatus, showToast, toast, weeks } from "../core/store";
+import { importTexts, marks, ready, setStatus, showToast, syncDrive, syncing, toast, weeks } from "../core/store";
 import { STATUS_LABEL, type Channel, type Post, type Status, type Week } from "../core/types";
 
 type Route = { name: "weeks" } | { name: "week"; key: string } | { name: "post"; key: string; channel: string; id: number };
@@ -36,14 +36,17 @@ function WeeksScreen() {
     <div class="screen">
       <header class="bar">
         <h1>Дайджесты</h1>
+        <button class="btn" disabled={syncing.value} onClick={() => syncDrive(true)}>
+          {syncing.value ? "Обновляю…" : "Обновить"}
+        </button>
         <label class="btn">
-          Открыть файл
+          Файл
           <input type="file" accept=".json,application/json" multiple hidden onChange={openFiles} />
         </label>
       </header>
       {list.length === 0 && (
         <div class="empty">
-          <p>Пока пусто. Откройте JSON-файл недели из Google Drive.</p>
+          <p>Пока пусто. Нажмите «Обновить», чтобы загрузить недели с Google Drive.</p>
           <button class="btn" onClick={loadSample}>
             Загрузить пример
           </button>
