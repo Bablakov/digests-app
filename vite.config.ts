@@ -15,8 +15,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       injectRegister: false,
       manifest: {
-        name: "Дайджесты",
-        short_name: "Дайджесты",
+        name: "Дайджест",
+        short_name: "Дайджест",
         description: "Еженедельные дайджесты Telegram-каналов с отметками",
         lang: "ru",
         start_url: base,

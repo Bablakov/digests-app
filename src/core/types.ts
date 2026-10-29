@@ -15,6 +15,8 @@ export interface Post {
   title: string;
   summary: string;
   full_text?: string;
+  /** Текст поста с Telegram-форматированием (жирный, ссылки, цитаты); появляется у рутин позже. */
+  full_html?: string;
   media_only?: boolean;
   images?: string[];
   image_count?: number;

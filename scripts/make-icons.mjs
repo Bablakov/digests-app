@@ -5,7 +5,7 @@ import { mkdirSync } from "node:fs";
 const out = new URL("../public/icons/", import.meta.url);
 mkdirSync(out, { recursive: true });
 
-// Тёмный фон на весь холст (iOS сам скругляет углы), фиолетовая нота — в гамме приложения.
+// Тёмный фон на весь холст (iOS сам скругляет углы), стопка карточек с галочкой «разобрано».
 // Maskable режется по центральному кругу, поэтому для него содержимое уменьшается (inset < 1).
 const svg = (inset) => `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
@@ -15,10 +15,17 @@ const svg = (inset) => `
     </linearGradient>
   </defs>
   <rect width="512" height="512" fill="url(#bg)"/>
-  <g transform="translate(256 256) scale(${inset}) translate(-256 -256)" fill="#4fb3a5">
-    <rect x="290" y="130" width="36" height="210" rx="12"/>
-    <path d="M290 130 L400 160 L400 214 L290 184 Z"/>
-    <ellipse cx="236" cy="346" rx="66" ry="52"/>
+  <g transform="translate(256 256) scale(${inset}) translate(-256 -256)">
+    <rect x="118" y="146" width="236" height="272" rx="34" fill="#2b5e59" transform="rotate(-8 236 282)"/>
+    <rect x="150" y="104" width="244" height="290" rx="34" fill="#4fb3a5"/>
+    <g fill="#0d2f2c">
+      <rect x="190" y="156" width="164" height="22" rx="11"/>
+      <rect x="190" y="204" width="164" height="14" rx="7" opacity="0.55"/>
+      <rect x="190" y="236" width="164" height="14" rx="7" opacity="0.55"/>
+      <rect x="190" y="268" width="104" height="14" rx="7" opacity="0.55"/>
+    </g>
+    <circle cx="340" cy="352" r="50" fill="#f2c94c"/>
+    <path d="M316 352 l18 18 l30 -36" fill="none" stroke="#0d2f2c" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 </svg>`;
 

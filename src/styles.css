@@ -159,13 +159,15 @@ h2 { font-size: 18px; margin: 20px 0 6px; }
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   background: var(--surface);
   border-top: 1px solid var(--line);
   padding-bottom: var(--bottom);
   z-index: 3;
 }
-.tabs button { padding: 14px 4px; text-align: center; color: var(--muted); }
+.tabs button { padding: 8px 2px 10px; text-align: center; color: var(--muted); font-size: 11px; position: relative; }
+.tabs .ti { display: block; font-size: 22px; line-height: 1.2; }
+.tabs .count { position: absolute; top: 2px; left: 55%; margin: 0; font-size: 11px; }
 .tabs button.on { color: var(--accent); font-weight: 600; }
 .count {
   margin-left: 6px;
@@ -177,3 +179,55 @@ h2 { font-size: 18px; margin: 20px 0 6px; }
 }
 .post-screen { padding-bottom: calc(var(--bottom) + 100px); }
 [hidden] { display: none !important; }
+.back-row { color: var(--accent); padding: 8px 0; }
+
+/* Свайп-строка */
+.swipe { position: relative; margin: 10px 0; border-radius: 14px; overflow: hidden; }
+.swipe .post { margin: 0; touch-action: pan-y; position: relative; transition: transform 0.15s; user-select: none; -webkit-user-select: none; }
+.swipe-bg { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 18px; font-weight: 600; }
+.swipe-bg.left { background: #8a6d12; justify-content: flex-start; }
+.swipe-bg.right { background: #8a2b2b; justify-content: flex-end; }
+
+/* Шапка и кнопки */
+.icon-btn { font-size: 22px; width: 40px; height: 40px; border-radius: 12px; background: var(--surface-2); text-align: center; }
+.icon-btn.on { background: var(--accent); color: #08201d; }
+.icon-btn.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn.ghost { background: var(--surface-2); color: var(--text); }
+.btn.wide { display: block; width: 100%; text-align: center; margin-top: 16px; }
+
+/* Выбор недели */
+.weekbar { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.weekbtn { flex: 1; background: var(--surface); border-radius: 14px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; }
+.arrow { font-size: 30px; width: 44px; height: 52px; border-radius: 14px; background: var(--surface); text-align: center; color: var(--accent); }
+.arrow:disabled { opacity: 0.3; }
+
+/* Нижний лист */
+.overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55); z-index: 10; display: flex; align-items: flex-end; }
+.sheet { width: 100%; max-width: 720px; margin: 0 auto; background: var(--surface); border-radius: 20px 20px 0 0; padding: 18px 16px calc(var(--bottom) + 16px); max-height: 85vh; overflow: auto; }
+.sheet h3 { margin: 0 0 12px; font-size: 20px; }
+.sheet h4 { margin: 16px 0 8px; color: var(--muted); font-weight: 500; }
+.pickers { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; }
+.pickers label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 14px; }
+select { font: inherit; color: var(--text); background: var(--surface-2); border: 0; border-radius: 10px; padding: 12px; }
+.checks { display: flex; flex-direction: column; gap: 4px; }
+.checks label { display: flex; align-items: center; gap: 12px; padding: 10px 4px; font-size: 17px; }
+input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); }
+.sheet-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+.seg { display: flex; background: var(--surface-2); border-radius: 12px; padding: 3px; gap: 2px; }
+.seg button { flex: 1; padding: 8px 10px; border-radius: 10px; text-align: center; font-size: 14px; }
+.seg button.on { background: var(--accent); color: #08201d; font-weight: 600; }
+
+/* Настройки */
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--surface); border-radius: 14px; padding: 12px 14px; margin: 8px 0; }
+.set-row small { display: block; }
+
+/* Текст поста */
+.full.html { white-space: normal; }
+.full.html blockquote { margin: 10px 0; padding-left: 12px; border-left: 3px solid var(--accent); color: var(--muted); }
+.full.html a { color: var(--accent); }
+.full.html pre, .full.html code { background: var(--surface-2); border-radius: 6px; padding: 2px 5px; font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; }
+.full.html pre { padding: 10px; overflow-x: auto; white-space: pre-wrap; }
+.size-s .full { font-size: 14px; }
+.size-l .full { font-size: 19px; line-height: 1.5; }
+.size-m .full { font-size: 16px; }
