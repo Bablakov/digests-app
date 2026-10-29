@@ -84,3 +84,13 @@ export async function setStatus(w: Week, channel: string, postId: number, status
   await appendMark(m);
   journal.value = [...journal.value, m];
 }
+
+/** Отправляет отмеченный пост в архив (или возвращает в работу), не меняя его статус. */
+export async function setArchived(w: Week, channel: string, postId: number, archived: boolean): Promise<void> {
+  const key = markKey(w, channel, postId);
+  const cur = marks.value.get(key)?.status ?? null;
+  if (!cur) return;
+  const m: Mark = { key, status: cur, archived, ts: Date.now(), device };
+  await appendMark(m);
+  journal.value = [...journal.value, m];
+}

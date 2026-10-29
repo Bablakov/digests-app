@@ -58,6 +58,8 @@ export interface Week {
 export interface Mark {
   key: string; // topic|year|week|channel|postId
   status: Status | null; // null — отметка снята
+  /** Идея или «позже» уже отработаны и лежат в архиве. */
+  archived?: boolean;
   ts: number;
   device: string;
 }

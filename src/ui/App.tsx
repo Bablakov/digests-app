@@ -5,7 +5,7 @@ import { markKey } from "../core/digest";
 import { weekRange } from "../core/isoweek";
 import { sanitizeHtml } from "../core/sanitize";
 import { hiddenTopics, statusMode, swipeEnabled, textSize, type StatusMode, type TextSize } from "../core/settings";
-import { marks, ready, setStatus, showToast, syncDrive, syncing, toast, weeks } from "../core/store";
+import { marks, ready, setArchived, setStatus, showToast, syncDrive, syncing, toast, weeks } from "../core/store";
 import { STATUS_LABEL, type Channel, type Post, type Status, type Week } from "../core/types";
 
 type Tab = "week" | "new" | "marked" | "settings";
@@ -24,6 +24,9 @@ const sheet = signal<Sheet>("");
 /** Выбранная неделя; пока не выбрана — берётся последняя. */
 const period = signal<{ year: number; week: number } | null>(null);
 const markedFilter = signal<Status>("idea");
+/** Во вкладке «Отмеченные»: что ещё в работе, а что уже в архиве. */
+const archiveView = signal<"work" | "archive">("work");
+const canArchive = (s: Status | null): boolean => s === "idea" || s === "later";
 /** Открытый пост: список под ним не размонтируется, поэтому «назад» возвращает туда же. */
 const open = signal<Open | null>(null);
 
@@ -32,6 +35,8 @@ interface Entry {
   ch: Channel;
   p: Post;
   status: Status | null;
+  /** Идея / «позже» отработаны (лежат в архиве). */
+  archived: boolean;
 }
 
 /** Все посты всех недель и тем с их статусом. */
@@ -39,7 +44,10 @@ const entries = computed<Entry[]>(() => {
   const out: Entry[] = [];
   for (const w of weeks.value)
     for (const ch of w.channels)
-      for (const p of ch.posts) out.push({ w, ch, p, status: marks.value.get(markKey(w, ch.username, p.id))?.status ?? null });
+      for (const p of ch.posts) {
+        const m = marks.value.get(markKey(w, ch.username, p.id));
+        out.push({ w, ch, p, status: m?.status ?? null, archived: !!m?.archived });
+      }
   return out;
 });
 
@@ -80,7 +88,9 @@ function Empty({ text }: { text: string }) {
 }
 
 /** Строка поста. Свайп влево — «отверг», вправо — «хорошая идея». */
-function PostRow({ e }: { e: Entry }) {
+function PostRow({ e, inMarked }: { e: Entry; inMarked?: boolean }) {
+  /** В «Отмеченных» свайп вправо отправляет идею в архив (или возвращает), в остальных списках — ставит «идея». */
+  const archiveSwipe = !!inMarked && canArchive(e.status);
   const el = useRef<HTMLDivElement>(null);
   const drag = useRef({ x: 0, y: 0, dx: 0, active: false, locked: false });
 
@@ -114,12 +124,15 @@ function PostRow({ e }: { e: Entry }) {
     setX(0);
     if (!d.locked) return;
     if (d.dx < -90 && e.status !== "rejected") void setStatus(e.w, e.ch.username, e.p.id, "rejected");
-    else if (d.dx > 90 && e.status !== "idea") void setStatus(e.w, e.ch.username, e.p.id, "idea");
+    else if (d.dx > 90) {
+      if (archiveSwipe) void setArchived(e.w, e.ch.username, e.p.id, !e.archived);
+      else if (e.status !== "idea") void setStatus(e.w, e.ch.username, e.p.id, "idea");
+    }
   };
 
   return (
     <div class="swipe">
-      <div class="swipe-bg left">💡 Идея</div>
+      <div class="swipe-bg left">{archiveSwipe ? (e.archived ? "↩ В работу" : "📦 В архив") : "💡 Идея"}</div>
       <div class="swipe-bg right">Отверг ✕</div>
       <div
         ref={el}
@@ -143,7 +156,7 @@ function PostRow({ e }: { e: Entry }) {
 }
 
 /** Список постов, сгруппированный: тема → канал. */
-function Grouped({ list, withWeek }: { list: Entry[]; withWeek?: boolean }) {
+function Grouped({ list, withWeek, inMarked }: { list: Entry[]; withWeek?: boolean; inMarked?: boolean }) {
   const groups = new Map<string, Entry[]>();
   for (const e of list) {
     const k = `${e.w.topic}|${e.ch.username}|${withWeek ? `${e.w.year}-${e.w.week}` : ""}`;
@@ -163,7 +176,7 @@ function Grouped({ list, withWeek }: { list: Entry[]; withWeek?: boolean }) {
               </span>
             </h2>
             {items.map((e) => (
-              <PostRow e={e} key={`${e.w.key}|${e.ch.username}|${e.p.id}`} />
+              <PostRow e={e} inMarked={inMarked} key={`${e.w.key}|${e.ch.username}|${e.p.id}`} />
             ))}
           </section>
         );
@@ -176,8 +189,10 @@ function WeekTab() {
   const cur = currentPeriod.value;
   if (!cur) return <Empty text="Пока пусто. Нажмите ⟳, чтобы загрузить недели с Google Drive." />;
   const mode = statusMode.value;
+  // Отвергнутые из недели исчезают; найти их можно в «Отмеченные → Отверг».
   const list = entries.value.filter(
     (e) =>
+      e.status !== "rejected" &&
       e.w.year === cur.year &&
       e.w.week === cur.week &&
       topicVisible(e) &&
@@ -223,17 +238,30 @@ function NewTab() {
 
 function MarkedTab() {
   const f = markedFilter.value;
-  const list = entries.value.filter((e) => e.status === f && topicVisible(e));
+  const split = canArchive(f);
+  const view = archiveView.value;
+  const inStatus = entries.value.filter((e) => e.status === f && topicVisible(e));
+  const list = split ? inStatus.filter((e) => e.archived === (view === "archive")) : inStatus;
   return (
     <>
       <div class="filters">
         {STATUSES.map((k) => (
           <button class={`chip ${f === k ? "on" : ""}`} key={k} onClick={() => (markedFilter.value = k)}>
-            {ICON[k]} {STATUS_LABEL[k]} · {entries.value.filter((e) => e.status === k && topicVisible(e)).length}
+            {ICON[k]} {STATUS_LABEL[k]} · {entries.value.filter((e) => e.status === k && topicVisible(e) && !(canArchive(k) && e.archived)).length}
           </button>
         ))}
       </div>
-      {list.length ? <Grouped list={list} withWeek /> : <Empty text="Пока нет отмеченных постов" />}
+      {split && (
+        <div class="seg">
+          <button class={view === "work" ? "on" : ""} onClick={() => (archiveView.value = "work")}>
+            В работе · {inStatus.filter((e) => !e.archived).length}
+          </button>
+          <button class={view === "archive" ? "on" : ""} onClick={() => (archiveView.value = "archive")}>
+            Архив · {inStatus.filter((e) => e.archived).length}
+          </button>
+        </div>
+      )}
+      {list.length ? <Grouped list={list} withWeek inMarked /> : <Empty text={split && view === "archive" ? "Архив пуст" : "Пока нет отмеченных постов"} />}
     </>
   );
 }
@@ -410,7 +438,9 @@ function Sheets() {
 
 function PostScreen({ o }: { o: Open }) {
   const { ch, p } = o;
-  const s = marks.value.get(markKey(o.w, ch.username, p.id))?.status ?? null;
+  const m = marks.value.get(markKey(o.w, ch.username, p.id));
+  const s = m?.status ?? null;
+  const archived = !!m?.archived;
   return (
     <div class={`screen post-screen size-${textSize.value}`}>
       <header class="bar">
@@ -439,6 +469,17 @@ function PostScreen({ o }: { o: Open }) {
         <a class="btn" href={p.url} target="_blank" rel="noopener">
           Открыть в Telegram
         </a>
+        {canArchive(s) && (
+          <button
+            class="btn ghost archive-btn"
+            onClick={async () => {
+              await setArchived(o.w, ch.username, p.id, !archived);
+              closePost();
+            }}
+          >
+            {archived ? "↩ Вернуть в работу" : "📦 В архив — обработано"}
+          </button>
+        )}
       </article>
       <footer class="actions">
         {STATUSES.map((st) => (

@@ -88,7 +88,7 @@ button {
 .post {
   border-left: 3px solid transparent;
 }
-.post.idea { border-left-color: #f2c94c; }
+.post.idea { border-left-color: #4cd070; background: #1c2b21; }
 .post.later { border-left-color: #56a6ff; }
 .post.read { opacity: 0.6; }
 .post.rejected { opacity: 0.35; }
@@ -185,7 +185,7 @@ h2 { font-size: 18px; margin: 20px 0 6px; }
 .swipe { position: relative; margin: 10px 0; border-radius: 14px; overflow: hidden; }
 .swipe .post { margin: 0; touch-action: pan-y; position: relative; transition: transform 0.15s; user-select: none; -webkit-user-select: none; }
 .swipe-bg { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 18px; font-weight: 600; }
-.swipe-bg.left { background: #8a6d12; justify-content: flex-start; }
+.swipe-bg.left { background: #1f7a3d; justify-content: flex-start; }
 .swipe-bg.right { background: #8a2b2b; justify-content: flex-end; }
 
 /* Шапка и кнопки */
@@ -231,3 +231,4 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
 .size-s .full { font-size: 14px; }
 .size-l .full { font-size: 19px; line-height: 1.5; }
 .size-m .full { font-size: 16px; }
+.archive-btn { display: block; margin-top: 12px; }
