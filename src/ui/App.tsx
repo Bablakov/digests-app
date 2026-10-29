@@ -12,7 +12,8 @@ type Tab = "week" | "new" | "marked" | "settings";
 type Sheet = "" | "week" | "filter";
 type Open = { w: Week; ch: Channel; p: Post };
 
-const STATUSES: Status[] = ["idea", "later", "read", "rejected"];
+/** «Посмотреть потом» пока скрыт: хватает вкладок «Неделя» и «Новые». Тип и старые отметки остаются в данных. */
+const STATUSES: Status[] = ["idea", "read", "rejected"];
 const ICON: Record<Status, string> = { idea: "💡", later: "🕓", read: "✓", rejected: "✕" };
 const TAB_LABEL: Record<Tab, string> = { week: "Неделя", new: "Новые", marked: "Отмеченные", settings: "Настройки" };
 const TAB_ICON: Record<Tab, string> = { week: "📅", new: "✨", marked: "⭐", settings: "⚙️" };
@@ -26,7 +27,7 @@ const period = signal<{ year: number; week: number } | null>(null);
 const markedFilter = signal<Status>("idea");
 /** Во вкладке «Отмеченные»: что ещё в работе, а что уже в архиве. */
 const archiveView = signal<"work" | "archive">("work");
-const canArchive = (s: Status | null): boolean => s === "idea" || s === "later";
+const canArchive = (s: Status | null): boolean => s === "idea";
 /** Открытый пост: список под ним не размонтируется, поэтому «назад» возвращает туда же. */
 const open = signal<Open | null>(null);
 

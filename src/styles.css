@@ -121,7 +121,7 @@ h2 { font-size: 18px; margin: 20px 0 6px; }
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   padding: 8px 8px calc(var(--bottom) + 8px);
   background: var(--surface);
